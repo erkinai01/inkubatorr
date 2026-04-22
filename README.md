@@ -1,360 +1,330 @@
-import React, { useState, useEffect } from 'react';
-import { initializeApp } from 'firebase/app';
-import { 
-  getAuth, 
-  signInAnonymously, 
-  onAuthStateChanged, 
-  signOut
-} from 'firebase/auth';
-import { 
-  getFirestore, 
-  doc, 
-  setDoc, 
-  onSnapshot 
-} from 'firebase/firestore';
-import { 
-  Thermometer, 
-  Droplets, 
-  RotateCw, 
-  Ban, 
-  Calendar, 
-  RefreshCw, 
-  Eye, 
-  User, 
-  LogOut, 
-  LogIn, 
-  Loader2,
-  ShieldCheck
-} from 'lucide-react';
+DOCTYPE html>
+<html lang="kk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Инкубатор Мониторингі - Исаханова Еркинай</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        
+        body {
+            /* Темный көк фон */
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            color: #f1f5f9;
+        }
 
-// Firebase конфигурациясы
-const firebaseConfig = JSON.parse(__firebase_config);
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'incubator-app';
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
 
-const incubationData = [
-  { day: 1, temp: '37.8°C', hum: '55%', turn: true, title: 'Дамудың басталуы', desc: 'Жасушалар бөлініп, бластодерма түзіледі. Эмбрионның негізі қаланады.', ovoscopy: 'Жұмыртқа таза көрінеді, тек сарыуыздың үстінде кішкене дақ бар.', emoji: '🥚' },
-  { day: 2, temp: '37.8°C', hum: '55%', turn: true, title: 'Қан тамырлары', desc: 'Жүрек соға бастайды. Бірінші қан тамырлары сарыуыз бетінде пайда болады.', ovoscopy: 'Сарыуыздың айналасында нәзік қызғылт торлар байқала бастайды.', emoji: '🥚' },
-  { day: 3, temp: '37.8°C', hum: '55%', turn: true, title: 'Айналу басталды', desc: 'Эмбрион оң жағына бұрылады. Ми мен жұлынның нышандары қалыптасады.', ovoscopy: 'Ортада кішкентай "өрмекші" тәрізді қан тамырлары анық көрінеді.', emoji: '🥚' },
-  { day: 4, temp: '37.8°C', hum: '55%', turn: true, title: 'Ағзалардың бастауы', desc: 'Ми, көз және құлақ дамиды. Бүйрек пен бауырдың негізі қаланады.', ovoscopy: 'Эмбрион үлкейеді, қан тамырлары жұмыртқаның жартысын алады.', emoji: '🥚' },
-  { day: 5, temp: '37.8°C', hum: '55%', turn: true, title: 'Көздердің қарайуы', desc: 'Көздері пигментацияланып, қара нүкте ретінде көріне бастайды.', ovoscopy: 'Көз өте анық қара нүкте болып көрінеді. Бұл - тірі эмбрионның белгісі.', emoji: '🥚' },
-  { day: 6, temp: '37.8°C', hum: '55%', turn: true, title: 'Тұмсық пен қозғалыс', desc: 'Тұмсық пайда болады. Эмбрион өздігінен қозғала бастайды.', ovoscopy: 'Эмбрионның секіргені немесе тербелгені байқалуы мүмкін.', emoji: '🥚' },
-  { day: 7, temp: '37.8°C', hum: '55%', turn: true, title: 'Аяқ-қолдар', desc: 'Аяқтары мен қанаттары ұзарады. Денесі қарқынды өседі.', ovoscopy: 'Қан тамырлары бүкіл жұмыртқаны дерлік торлап тастаған.', emoji: '🥚' },
-  { day: 8, temp: '37.8°C', hum: '55%', turn: true, title: 'Қауырсын нышаны', desc: 'Қауырсын өсетін фолликулалар пайда болады. Жұмыртқа тісі түзіледі.', ovoscopy: 'Эмбрион ортада қараңғылау болып көрінеді, қозғалысы жиілейді.', emoji: '🥚' },
-  { day: 9, temp: '37.8°C', hum: '55%', turn: true, title: 'Құсқа ұқсау', desc: 'Эмбрион енді нағыз балапанға ұқсай бастайды. Саусақтары бөлінеді.', ovoscopy: 'Балапанның формасы айқындала түседі.', emoji: '🥚' },
-  { day: 10, temp: '37.8°C', hum: '55%', turn: true, title: 'Тырнақтар', desc: 'Тұмсығы қатая бастайды. Тырнақтары мен қабыршақтары пайда болады.', ovoscopy: 'Жұмыртқаның іші айтарлықтай қараңғыланады.', emoji: '🥚' },
-  { day: 11, temp: '37.8°C', hum: '55%', turn: true, title: 'Қауырсынның өсуі', desc: 'Денесінде алғашқы мамық қауырсындар көріне бастайды.', ovoscopy: 'Тек ауа камерасы мен жарық өткізетін кішкене жерлер қалады.', emoji: '🥚' },
-  { day: 12, temp: '37.8°C', hum: '55%', turn: true, title: 'Қозғалыстың артуы', desc: 'Балапан жұмыртқа ішінде өте белсенді. Ол ақуызды қарқынды жұтады.', ovoscopy: 'Балапан жұмыртқаның 2/3 бөлігін алып жатыр.', emoji: '🥚' },
-  { day: 13, temp: '37.8°C', hum: '55%', turn: true, title: 'Қаңқаның қатаюы', desc: 'Сүйектері кальций жинап, қатаяды. Қанаттары толық қалыптасқан.', ovoscopy: 'Жұмыртқаның іші толық қараңғы, тек ауа камерасы анық көрінеді.', emoji: '🥚' },
-  { day: 14, temp: '37.8°C', hum: '55%', turn: true, title: 'Басын бұру', desc: 'Балапан басын жұмыртқаның кең жағына (ауа камерасына) қарай бұрады.', ovoscopy: 'Эмбрион орналасуын өзгертті, бұл шығуға дайындықтың басы.', emoji: '🥚' },
-  { day: 15, temp: '37.8°C', hum: '55%', turn: true, title: 'Мамықтар', desc: 'Балапан толығымен мамықпен жабылады. Ішкі мүшелері дамыған.', ovoscopy: 'Ішінде бос орын қалмады десе де болады.', emoji: '🥚' },
-  { day: 16, temp: '37.8°C', hum: '55%', turn: true, title: 'Сарыуызды игеру', desc: 'Сарыуыз балапанның ішіне тартыла бастайды (қоректік қор).', ovoscopy: 'Жұмыртқа өте тығыз, қозғалыстар тек ауа камерасы маңында білінеді.', emoji: '🥚' },
-  { day: 17, temp: '37.8°C', hum: '55%', turn: true, title: 'Демалуға дайындық', desc: 'Балапан тұмсығын ауа камерасына жақындатады. Сұйықтық азаяды.', ovoscopy: 'Ауа камерасының шекарасы қисая бастайды.', emoji: '🥚' },
-  { day: 18, temp: '37.5°C', hum: '70%', turn: false, title: 'Лакдаун (Тоқтату)', desc: 'Бұруды тоқтатыңыз! Балапан шығуға ыңғайлы позиция алады.', ovoscopy: 'Балапан ауа камерасына тұмсығын сұғады. Шырыл естілуі мүмкін.', emoji: '🐣' },
-  { day: 19, temp: '37.5°C', hum: '70%', turn: false, title: 'Ауамен тыныстау', desc: 'Өкпесі жұмыс істей бастайды. Ол енді жұмыртқа ішіндегі ауамен дем алады.', ovoscopy: 'Ауа камерасының ішінде тұмсықтың қозғалысын көруге болады.', emoji: '🐣' },
-  { day: 20, temp: '37.5°C', hum: '70%', turn: false, title: 'Тесу (Нақлу)', desc: 'Балапан қабықты тесе бастайды. Бұл процесс 12-24 сағатқа созылуы мүмкін.', ovoscopy: 'Қабықтағы алғашқы сызаттар мен тесіктер көрінеді.', emoji: '🐣' },
-  { day: 21, temp: '37.2°C', hum: '75%', turn: false, title: 'Туылу!', desc: 'Балапан айнала шоқып, қабықты жарып шығады. Құттықтаймыз!', ovoscopy: 'Бос қабық және жаңа туған балапан!', emoji: '🐥' }
-];
+        #main-content {
+            display: none;
+            width: 100%;
+            max-width: 1100px;
+            animation: fadeIn 0.5s ease-out;
+        }
 
-const EmbryoGraphic = ({ day }) => {
-  const getStageStyles = () => {
-    if (day <= 3) return { color: '#fee2e2', opacity: 0.3, size: 'scale-50', showVeins: day > 1 };
-    if (day <= 7) return { color: '#fecaca', opacity: 0.6, size: 'scale-75', showVeins: true, showEye: day > 4 };
-    if (day <= 13) return { color: '#f87171', opacity: 0.9, size: 'scale-90', showVeins: true, showEye: true, showBeak: day > 10 };
-    if (day <= 17) return { color: '#ef4444', opacity: 1, size: 'scale-100', showVeins: true, showEye: true, showBeak: true, showFeathers: true };
-    return { color: '#dc2626', opacity: 1, size: 'scale-110', showVeins: false, showEye: true, showBeak: true, showFeathers: true, isFull: true };
-  };
-  const stage = getStageStyles();
-  return (
-    <div className="relative w-48 h-64 flex items-center justify-center">
-      <div className="absolute inset-0 bg-slate-100 rounded-[50%_50%_50%_50%/60%_60%_40%_40%] border-4 border-slate-300 shadow-inner overflow-hidden">
-        {stage.showVeins && (
-          <svg className="absolute inset-0 w-full h-full opacity-40" viewBox="0 0 100 100">
-            <path d="M50 50 Q70 20 90 40 M50 50 Q30 10 10 30 M50 50 Q80 80 60 95 M50 50 Q20 80 5 60" stroke="red" strokeWidth="0.5" fill="none" className="animate-pulse" />
-          </svg>
-        )}
-        <div className={`absolute transition-all duration-700 ease-in-out ${stage.size} transform translate-y-2`}>
-          <div className="w-16 h-20 rounded-full relative" style={{ backgroundColor: stage.color, opacity: stage.opacity }}>
-            {stage.showEye && <div className="absolute top-4 right-4 w-3 h-3 bg-black rounded-full border border-white"></div>}
-            {stage.showBeak && <div className="absolute top-6 -right-2 w-4 h-2 bg-yellow-400 rounded-full transform rotate-12"></div>}
-          </div>
+        #login-screen {
+            width: 100%;
+            max-width: 400px;
+            animation: slideUp 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .day-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .day-card:hover {
+            transform: scale(1.02);
+            background-color: rgba(59, 130, 246, 0.15);
+            border-color: #3b82f6;
+        }
+
+        .progress-line {
+            position: absolute;
+            left: 28px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #334155;
+            z-index: 0;
+        }
+
+        /* Modal Styles */
+        #modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            z-index: 50;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .modal-container {
+            max-width: 500px;
+            width: 100%;
+            background: #1e293b;
+            animation: modalPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        @keyframes modalPop {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #3b82f6;
+            border-radius: 10px;
+        }
+
+        input {
+            background: rgba(15, 23, 42, 0.6) !important;
+            color: white !important;
+            border: 1px solid #334155 !important;
+        }
+    </style>
+</head>
+<body class="p-4">
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="glass-card rounded-3xl p-8 shadow-2xl text-center border-t-8 border-blue-500">
+        <div class="mb-6">
+            <div class="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-500/30">
+                <i class="fas fa-egg text-blue-400 text-4xl animate-bounce"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-white">Жүйеге кіру</h2>
+            <p class="text-gray-400 text-sm">Инкубаторды бақылау үшін авторлық рұқсат қажет</p>
         </div>
-        <div className={`absolute top-0 w-full bg-blue-100/40 border-b border-blue-200 transition-all duration-500`} style={{ height: `${10 + (day * 0.8)}%` }}></div>
-      </div>
-    </div>
-  );
-};
-
-export default function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [authLoading, setAuthLoading] = useState(false);
-  
-  const [startDate, setStartDate] = useState(null);
-  const [currentDay, setCurrentDay] = useState(0);
-  const [selectedDay, setSelectedDay] = useState(1);
-
-  // 1. Auth Initialization
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // 2. Data Synchronization with Firestore
-  useEffect(() => {
-    if (!user) return;
-
-    // Әр қолданушының (тіпті анонимді болса да) өз деректері болады
-    const userDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'incubation');
-    
-    const unsubscribe = onSnapshot(userDocRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data();
-        setStartDate(data.startDate);
-        if (data.startDate) calculateCurrentDay(data.startDate);
-      } else {
-        setStartDate(null);
-        setCurrentDay(0);
-      }
-    }, (error) => {
-      console.error("Firestore error:", error);
-    });
-
-    return () => unsubscribe();
-  }, [user]);
-
-  const calculateCurrentDay = (start) => {
-    const startObj = new Date(start);
-    startObj.setHours(0, 0, 0, 0);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const diffTime = today - startObj;
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    setCurrentDay(diffDays);
-    setSelectedDay(diffDays > 0 && diffDays <= 21 ? diffDays : (diffDays > 21 ? 21 : 1));
-  };
-
-  const handleQuickEnter = async () => {
-    setAuthLoading(true);
-    try {
-      await signInAnonymously(auth);
-    } catch (error) {
-      console.error("Кіру қатесі:", error);
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    await signOut(auth);
-    setUser(null);
-  };
-
-  const saveStartDate = async (date) => {
-    if (!user) return;
-    try {
-      const userDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'incubation');
-      await setDoc(userDocRef, { startDate: date });
-    } catch (e) {
-      console.error("Сақтау қатесі:", e);
-    }
-  };
-
-  const handleReset = async () => {
-    if (window.confirm('Жаңа цикл бастағыңыз келе ме? Барлық деректер нөлден басталады.')) {
-      const userDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'incubation');
-      await setDoc(userDocRef, { startDate: null });
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center space-y-4">
-        <RefreshCw className="animate-spin text-orange-500" size={48} />
-        <p className="text-slate-400 animate-pulse uppercase tracking-widest text-xs">Жүктелуде...</p>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-[#1e293b] rounded-[2.5rem] shadow-2xl border border-slate-700 p-10 text-center animate-in fade-in zoom-in duration-500">
-           <div className="w-24 h-24 bg-orange-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-5xl animate-bounce">🐣</span>
-           </div>
-           <h2 className="text-3xl font-bold text-white mb-4">Дайынсыз ба?</h2>
-           <p className="text-slate-400 text-sm mb-10 leading-relaxed">
-             Инкубация процесін бақылау үшін "Кіру" түймесін басыңыз. Логин мен құпия сөз қажет емес.
-           </p>
-
-           <button 
-             onClick={handleQuickEnter}
-             disabled={authLoading}
-             className={`w-full ${authLoading ? 'bg-orange-800' : 'bg-orange-600 hover:bg-orange-700 active:scale-[0.98]'} text-white font-bold py-5 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 text-lg`}
-           >
-             {authLoading ? <Loader2 className="animate-spin" size={24} /> : <LogIn size={24}/>}
-             {authLoading ? 'Кіруде...' : 'Жүйеге кіру'}
-           </button>
-           
-           <p className="mt-6 text-[10px] text-slate-500 uppercase tracking-widest font-medium">
-             Тіркелусіз тез қол жеткізу
-           </p>
-        </div>
-      </div>
-    );
-  }
-
-  const currentDayData = incubationData.find(d => d.day === selectedDay) || incubationData[0];
-  const progressPercent = Math.min(100, Math.max(0, ((currentDay > 21 ? 21 : currentDay) / 21) * 100));
-
-  return (
-    <div className="min-h-screen bg-[#0f172a] text-slate-100 flex flex-col">
-      <header className="bg-[#1e293b] border-b border-slate-700 px-6 py-4 sticky top-0 z-50 shadow-lg">
-        <div className="max-w-5xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🐤</span>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 to-amber-300 bg-clip-text text-transparent">
-              Инкубатор
-            </h1>
-          </div>
-          <div className="flex items-center gap-4">
-             <div className="hidden sm:flex flex-col items-end">
-               <span className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter flex items-center gap-1">
-                 <ShieldCheck size={10} className="text-emerald-400" /> Белсенді сессия
-               </span>
-               <span className="text-xs text-slate-300">Пайдаланушы: {user.uid.substring(0, 8)}...</span>
-             </div>
-             <button onClick={handleSignOut} className="p-2 text-slate-400 hover:text-red-400 transition-colors" title="Шығу">
-               <LogOut size={20} />
-             </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-5xl mx-auto px-4 py-8 flex-grow w-full">
-        {!startDate ? (
-          <div className="bg-[#1e293b] rounded-[2.5rem] p-10 max-w-lg mx-auto border border-slate-700 text-center shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h2 className="text-2xl font-bold mb-6 text-white">Жаңа инкубацияны бастау</h2>
-            <p className="text-slate-400 mb-8">Жұмыртқаларды инкубаторға салған күнді таңдаңыз.</p>
-            <input 
-              type="date" 
-              className="w-full p-4 rounded-2xl bg-slate-900 border-2 border-slate-700 text-white mb-6 outline-none focus:border-orange-500"
-              defaultValue={new Date().toISOString().split('T')[0]}
-              id="date-input"
-            />
-            <button 
-              onClick={() => saveStartDate(document.getElementById('date-input').value)}
-              className="w-full bg-orange-600 hover:bg-orange-700 py-4 rounded-2xl font-bold transition-all shadow-lg"
-            >
-              Инкубацияны бастау
+        
+        <form id="login-form" class="space-y-4">
+            <div class="text-left">
+                <label class="block text-xs font-bold text-gray-400 uppercase ml-1 mb-1">Пайдаланушы</label>
+                <input type="text" id="username" placeholder="Атыңыз" class="w-full px-4 py-3 rounded-xl outline-none transition focus:ring-2 focus:ring-blue-500" required>
+            </div>
+            <div class="text-left">
+                <label class="block text-xs font-bold text-gray-400 uppercase ml-1 mb-1">Құпия сөз</label>
+                <input type="password" id="password" placeholder="••••••••" class="w-full px-4 py-3 rounded-xl outline-none transition focus:ring-2 focus:ring-blue-500" required>
+            </div>
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg transition transform hover:-translate-y-1">
+                Кіру <i class="fas fa-sign-in-alt ml-2"></i>
             </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in duration-700">
-            <div className="lg:col-span-4 space-y-6">
-              <div className="bg-[#1e293b] rounded-[2.5rem] p-8 border border-slate-700 flex flex-col items-center shadow-xl">
-                <EmbryoGraphic day={selectedDay} />
-                <div className="mt-6 text-center">
-                  <div className="text-6xl font-black text-orange-400">{selectedDay}</div>
-                  <div className="text-slate-500 uppercase text-[10px] tracking-widest font-bold">Күндік даму</div>
-                </div>
-              </div>
-
-              <div className="bg-indigo-900/40 rounded-3xl p-6 border border-indigo-500/20">
-                <div className="flex justify-between mb-2 text-sm font-bold">
-                  <span>Прогресс</span>
-                  <span>{Math.round(progressPercent)}%</span>
-                </div>
-                <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                  <div style={{width: `${progressPercent}%`}} className="h-full bg-orange-500 transition-all duration-1000"></div>
-                </div>
-                <div className="mt-4 flex items-center justify-between">
-                  <button onClick={handleReset} className="text-xs text-slate-500 hover:text-red-400 flex items-center gap-1 transition-colors">
-                    <RefreshCw size={12} /> Циклды жаңарту
-                  </button>
-                  <span className="text-[10px] text-slate-500 flex items-center gap-1">
-                    <Calendar size={10} /> {new Date(startDate).toLocaleDateString()}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="lg:col-span-8 space-y-6">
-              <div className="bg-[#1e293b] rounded-[2.5rem] p-8 border border-slate-700 shadow-xl">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="bg-orange-500/10 text-orange-400 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-orange-500/20">
-                    {selectedDay === currentDay ? 'Бүгін' : `Күн ${selectedDay}`}
-                  </span>
-                </div>
-                <h2 className="text-3xl font-bold mb-4 text-white">{currentDayData.title}</h2>
-                <p className="text-slate-400 mb-8 leading-relaxed text-sm sm:text-base">{currentDayData.desc}</p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-                  <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-700">
-                    <Thermometer className="text-orange-400 mb-2" size={20} />
-                    <div className="text-[10px] text-slate-500 font-bold uppercase mb-1 tracking-tighter">Температура</div>
-                    <div className="text-xl font-bold text-white">{currentDayData.temp}</div>
-                  </div>
-                  <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-700">
-                    <Droplets className="text-blue-400 mb-2" size={20} />
-                    <div className="text-[10px] text-slate-500 font-bold uppercase mb-1 tracking-tighter">Ылғалдылық</div>
-                    <div className="text-xl font-bold text-white">{currentDayData.hum}</div>
-                  </div>
-                  <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-700">
-                    {currentDayData.turn ? <RotateCw className="text-emerald-400 mb-2" size={20} /> : <Ban className="text-red-400 mb-2" size={20} />}
-                    <div className="text-[10px] text-slate-500 font-bold uppercase mb-1 tracking-tighter">Айналдыру</div>
-                    <div className={`text-xl font-bold ${currentDayData.turn ? 'text-white' : 'text-red-400'}`}>{currentDayData.turn ? 'Қажет' : 'Тоқтату'}</div>
-                  </div>
-                </div>
-
-                <div className="bg-slate-900/80 p-5 rounded-2xl border border-slate-700">
-                  <div className="flex items-center gap-2 mb-2 text-orange-400 font-bold text-xs uppercase tracking-widest">
-                    <Eye size={16} /> Овоскопия
-                  </div>
-                  <p className="text-slate-300 text-sm italic leading-relaxed">{currentDayData.ovoscopy}</p>
-                </div>
-              </div>
-
-              <div className="bg-[#1e293b] rounded-[2rem] p-6 border border-slate-700">
-                <div className="grid grid-cols-7 gap-2">
-                  {incubationData.map((d) => (
-                    <button
-                      key={d.day}
-                      onClick={() => setSelectedDay(d.day)}
-                      className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all border-2 
-                        ${selectedDay === d.day ? 'border-orange-500 bg-orange-500/10 scale-105 shadow-md' : 'border-slate-800 hover:border-slate-600'}
-                        ${d.day < currentDay ? 'opacity-30' : ''}`}
-                    >
-                      <span className={`text-[9px] font-bold ${selectedDay === d.day ? 'text-orange-400' : 'text-slate-500'}`}>{d.day}</span>
-                      <span className="text-base sm:text-xl">{d.emoji}</span>
-                      {d.day === currentDay && <div className="w-1 h-1 bg-blue-500 rounded-full mt-1 animate-pulse"></div>}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
-
-      <footer className="py-8 border-t border-slate-800/50 mt-auto">
-        <div className="max-w-5xl mx-auto px-6 text-center">
-          <div className="flex items-center justify-center gap-2 text-slate-500 mb-1">
-            <User size={14} />
-            <span className="text-[10px] uppercase tracking-widest font-bold">Жоба авторы</span>
-          </div>
-          <div className="text-slate-300 font-medium tracking-wide">Исаханова Еркинай Кайыпрахмановна</div>
-          <div className="mt-4 text-[10px] text-slate-600 uppercase tracking-widest italic">
-            Инкубациялық циклды басқару жүйесі v2.4
-          </div>
-        </div>
-      </footer>
+        </form>
+        <p class="mt-6 text-[10px] text-gray-500 uppercase tracking-widest">Исаханова Еркинай К. жобасы</p>
     </div>
-  );
-}
+
+    <!-- Main Content -->
+    <div id="main-content">
+        <!-- Header -->
+        <div class="glass-card rounded-3xl p-8 mb-8 shadow-2xl flex flex-col md:flex-row justify-between items-center border-b-4 border-blue-600">
+            <div>
+                <h1 class="text-4xl font-extrabold text-white tracking-tight">
+                    <i class="fas fa-egg text-yellow-400 mr-2"></i>Smart Incubator
+                </h1>
+                <p class="text-blue-400 font-medium mt-1 uppercase text-xs tracking-wider">Даму деңгейін бақылау панели</p>
+            </div>
+            <div class="mt-6 md:mt-0 text-right">
+                <div class="text-xs text-gray-400 italic">Жоба авторы:</div>
+                <div class="text-xl font-bold text-blue-100 uppercase">Исаханова Еркинай</div>
+                <button onclick="logout()" class="text-xs text-red-400 font-bold mt-2 hover:text-red-300">Шығу <i class="fas fa-power-off ml-1"></i></button>
+            </div>
+        </div>
+
+        <!-- Dashboard Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="glass-card p-6 rounded-2xl shadow-lg border-l-4 border-orange-500">
+                <span class="text-gray-400 font-semibold block mb-1 text-sm uppercase">Ағымдағы күн</span>
+                <div class="text-3xl font-bold text-white" id="stat-day">1/21</div>
+            </div>
+            <div class="glass-card p-6 rounded-2xl shadow-lg border-l-4 border-red-500">
+                <span class="text-gray-400 font-semibold block mb-1 text-sm uppercase">Температура</span>
+                <div class="text-3xl font-bold text-white">37.8°C</div>
+            </div>
+            <div class="glass-card p-6 rounded-2xl shadow-lg border-l-4 border-blue-500">
+                <span class="text-gray-400 font-semibold block mb-1 text-sm uppercase">Ылғалдылық</span>
+                <div class="text-3xl font-bold text-white">55%</div>
+            </div>
+            <div class="glass-card p-6 rounded-2xl shadow-lg border-l-4 border-green-500">
+                <span class="text-gray-400 font-semibold block mb-1 text-sm uppercase">Жағдайы</span>
+                <div class="text-3xl font-bold text-green-400">Қалыпты</div>
+            </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="glass-card rounded-3xl shadow-2xl overflow-hidden mb-10">
+            <div class="p-6 border-b border-white/5 bg-white/5">
+                <h2 class="text-2xl font-bold text-white">Даму хронологиясы</h2>
+                <p class="text-sm text-gray-400 mt-1">Күннің үстінен басып, толық мәлімет алыңыз</p>
+            </div>
+            <div class="p-6 custom-scroll overflow-y-auto max-h-[600px] relative">
+                <div class="progress-line"></div>
+                <div id="timeline-container" class="space-y-6"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Day Details -->
+    <div id="modal-overlay" onclick="closeModal()">
+        <div class="modal-container rounded-3xl overflow-hidden shadow-2xl" onclick="event.stopPropagation()">
+            <div id="modal-header" class="bg-blue-700 p-6 text-white flex justify-between items-center">
+                <h3 class="text-2xl font-bold" id="modal-title">Күн мәліметі</h3>
+                <button onclick="closeModal()" class="text-white hover:text-gray-300 text-3xl font-light">&times;</button>
+            </div>
+            <div class="p-8">
+                <div class="w-32 h-32 bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-blue-500/30">
+                    <i id="modal-icon" class="fas fa-egg text-blue-400 text-5xl"></i>
+                </div>
+                <div class="text-center mb-6">
+                    <span id="modal-day-badge" class="bg-blue-500/20 text-blue-400 text-xs font-bold px-3 py-1 rounded-full border border-blue-500/30 uppercase">1-күн</span>
+                    <h4 id="modal-subtitle" class="text-xl font-bold text-white mt-2">Даму сатысы</h4>
+                </div>
+                <div class="space-y-4 text-left">
+                    <div class="bg-slate-800/50 p-5 rounded-2xl border border-white/5">
+                        <p id="modal-description" class="text-gray-300 leading-relaxed italic text-sm"></p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div class="p-4 bg-blue-900/30 rounded-xl border border-blue-500/20">
+                            <span class="block text-blue-400 font-bold uppercase text-[10px] mb-1">Кеңес</span>
+                            <span id="modal-tip" class="text-blue-100 text-xs"></span>
+                        </div>
+                        <div class="p-4 bg-green-900/30 rounded-xl border border-green-500/20">
+                            <span class="block text-green-400 font-bold uppercase text-[10px] mb-1">Статус</span>
+                            <span class="text-green-100 text-xs">Тұрақты даму</span>
+                        </div>
+                    </div>
+                </div>
+                <button onclick="closeModal()" class="w-full mt-8 bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-500 transition shadow-lg">Түсінікті</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const developmentStages = [
+            { day: 1, icon: "fa-seedling", title: "Бастапқы кезең", desc: "Ұрықтану процесі басталады. Алғашқы жасушалар бөлінеді. Жұмыртқа ішінде өмір нышандары пайда бола бастаған сәт.", tip: "Ылғалдылықты 55% деңгейінде ұстаңыз." },
+            { day: 2, icon: "fa-microscope", title: "Қан тамырлары", desc: "Жұмыртқа сарыуызында қан тамырларының алғашқы торы (area vasculosa) пайда болады.", tip: "Температура 37.8°C болуы шарт." },
+            { day: 3, icon: "fa-heartbeat", title: "Жүрек соғысы", desc: "Жүрек соға бастайды. Аяқ пен қанаттың негізі қаланады. Эмбрион айнала бастайды.", tip: "Жұмыртқаны күніне 4-6 рет аударыңыз." },
+            { day: 4, icon: "fa-eye", title: "Көздің дамуы", desc: "Көздің пигментациясы басталып, анық көрінетін қара нүкте пайда болады. Ми бөліктері бөлінеді.", tip: "Желдету жүйесін тексеріңіз." },
+            { day: 5, icon: "fa-shapes", title: "Эмбрион пішіні", desc: "Эмбрион C-тәрізді иіледі, буындар мен саусақтардың негізі қаланады.", tip: "Су деңгейін тексеруді ұмытпаңыз." },
+            { day: 6, icon: "fa-crow", title: "Тұмсық бастамасы", desc: "Тұмсықтың алғашқы белгілері мен ерікті қозғалыс элементтері көрінеді.", tip: "Инкубаторды артық ашпаңыз." },
+            { day: 7, icon: "fa-feather-alt", title: "Қауырсын негізі", desc: "Тұмсық қатая бастайды, денесінде қауырсын фолликулалары пайда болады.", tip: "Ауа алмасуын қадағалаңыз." },
+            { day: 8, icon: "fa-ear-listen", title: "Есту мүшесі", desc: "Құлақ тесіктері пайда болып, сыртқы дыбыстарға сезімталдық артады.", tip: "Жарықпен тексеруге болады (овоскопия)." },
+            { day: 9, icon: "fa-fingerprint", title: "Тырнақтар", desc: "Аяқ саусақтарында тырнақтардың дамуы басталады. Балапан белсенді қозғалады.", tip: "Температура тұрақтылығы маңызды." },
+            { day: 10, icon: "fa-running", title: "Белсенді қозғалыс", desc: "Эмбрионның қозғалысы күшейеді, тұмсық толық қалыптасады. Сарыуыз азаяды.", tip: "Инкубаторды таза ұстаңыз." },
+            { day: 11, icon: "fa-feather", title: "Қауырсын жамылғысы", desc: "Алғашқы мамықтар көріне бастайды, денесі мамықпен жабыла бастайды.", tip: "Аударған кезде абай болыңыз." },
+            { day: 12, icon: "fa-expand-arrows-alt", title: "Жылдам өсу", desc: "Эмбрион мөлшері күрт өседі, сүйектері қатая бастайды.", tip: "Желдетуді сәл арттыруға болады." },
+            { day: 13, icon: "fa-shield-alt", title: "Қорғаныс", desc: "Тырнақтар мен қабыршақтар мүйізденіп, қорғаныс қабаты нығаяды.", tip: "Ылғалдылықты тексеріңіз." },
+            { day: 14, icon: "fa-sync", title: "Бағытты өзгерту", desc: "Балапан басын жұмыртқаның доғал ұшына (ауа камерасына) қарай бұрады.", tip: "Балапанның орналасуы маңызды кезең." },
+            { day: 15, icon: "fa-vial", title: "Ағзалардың пісуі", desc: "Барлық ішкі мүшелер толық қалыптасып, өз қызметін бастайды.", tip: "Тыныштық сақтаңыз." },
+            { day: 16, icon: "fa-drumstick-bite", title: "Белокты игеру", desc: "Ақуыз (белок) толығымен эмбрионның қорегі ретінде жұмсалып бітеді.", tip: "Энергия жинақтау кезеңі." },
+            { day: 17, icon: "fa-compress-alt", title: "Тығыз кеңістік", desc: "Балапан жұмыртқа ішін толық толтырады, қозғалыс шектеледі.", tip: "Аударуды жалғастырыңыз." },
+            { day: 18, icon: "fa-wind", title: "Тыныс алуға дайындық", desc: "Өсу тоқтап, балапан сыртқы тыныс алуға дайындала бастайды.", tip: "Соңғы рет аудару күні (кешке тоқтатыңыз)." },
+            { day: 19, icon: "fa-battery-half", title: "Энергия жинақтау", desc: "Сарыуыз қапшығы балапанның ішкі қуысына тартыла бастайды. Аудару тоқтатылады.", tip: "Ылғалдылықты 70%-ға дейін көтеріңіз." },
+            { day: 20, icon: "fa-bullhorn", title: "Алғашқы дыбыс", desc: "Сарыуыз толық тартылды. Балапан тұмсығымен ауа камерасын теседі. Шиқыл естілуі мүмкін.", tip: "Инкубаторды мүлдем ашпаңыз!" },
+            { day: 21, icon: "fa-birthday-cake", title: "Шығу кезеңі!", desc: "Балапан қабықты жарып, сыртқа шығады. Құттықтаймыз! Бұл үлкен жеңіс.", tip: "Балапандардың кебуін күтіңіз." }
+        ];
+
+        const currentDay = 10;
+
+        const loginForm = document.getElementById('login-form');
+        const loginScreen = document.getElementById('login-screen');
+        const mainContent = document.getElementById('main-content');
+        const timelineContainer = document.getElementById('timeline-container');
+        const modal = document.getElementById('modal-overlay');
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const pass = document.getElementById('password').value;
+            if (pass === "123" || pass === "admin") {
+                loginScreen.style.display = 'none';
+                mainContent.style.display = 'block';
+                document.body.style.display = 'block';
+                initTimeline();
+            } else {
+                alert("Құпия сөз қате!");
+            }
+        });
+
+        function logout() { location.reload(); }
+
+        function initTimeline() {
+            timelineContainer.innerHTML = '';
+            developmentStages.forEach(stage => {
+                const isCompleted = stage.day <= currentDay;
+                const isCurrent = stage.day === currentDay;
+                
+                const card = document.createElement('div');
+                card.className = `day-card relative z-10 flex items-start gap-6 p-4 rounded-2xl border border-white/5 shadow-lg ${isCurrent ? 'bg-blue-500/20 border-blue-500/50' : ''}`;
+                card.onclick = () => showDayDetails(stage);
+                
+                card.innerHTML = `
+                    <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ring-4 ring-[#0f172a] ${isCompleted ? 'bg-green-500' : 'bg-slate-700'}">
+                        <i class="fas ${isCompleted ? 'fa-check' : 'fa-lock'} text-white text-[10px]"></i>
+                    </div>
+                    <div class="flex-shrink-0 w-12 text-center">
+                        <span class="text-[9px] font-bold text-gray-500 uppercase tracking-tighter">Күн</span>
+                        <div class="text-xl font-black text-white">${stage.day}</div>
+                    </div>
+                    <div class="flex-grow">
+                        <div class="flex items-center gap-2 mb-1">
+                            <i class="fas ${stage.icon} text-blue-400 text-sm"></i>
+                            <h3 class="font-bold text-blue-100 text-sm">${stage.title}</h3>
+                        </div>
+                        <p class="text-[11px] text-gray-400 line-clamp-1 italic">${stage.desc}</p>
+                    </div>
+                    <i class="fas fa-chevron-right text-slate-700 self-center text-xs"></i>
+                `;
+                timelineContainer.appendChild(card);
+            });
+            document.getElementById('stat-day').textContent = `${currentDay}/21`;
+        }
+
+        function showDayDetails(stage) {
+            document.getElementById('modal-title').textContent = `${stage.day}-күн мәліметі`;
+            document.getElementById('modal-day-badge').textContent = `${stage.day}-КҮН`;
+            document.getElementById('modal-subtitle').textContent = stage.title;
+            document.getElementById('modal-description').textContent = stage.desc;
+            document.getElementById('modal-tip').textContent = stage.tip;
+            
+            const iconEl = document.getElementById('modal-icon');
+            iconEl.className = `fas ${stage.icon} text-blue-400 text-5xl`;
+            
+            modal.style.display = 'flex';
+        }
+
+        function closeModal() {
+            modal.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
