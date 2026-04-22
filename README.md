@@ -1,0 +1,360 @@
+import React, { useState, useEffect } from 'react';
+import { initializeApp } from 'firebase/app';
+import { 
+  getAuth, 
+  signInAnonymously, 
+  onAuthStateChanged, 
+  signOut
+} from 'firebase/auth';
+import { 
+  getFirestore, 
+  doc, 
+  setDoc, 
+  onSnapshot 
+} from 'firebase/firestore';
+import { 
+  Thermometer, 
+  Droplets, 
+  RotateCw, 
+  Ban, 
+  Calendar, 
+  RefreshCw, 
+  Eye, 
+  User, 
+  LogOut, 
+  LogIn, 
+  Loader2,
+  ShieldCheck
+} from 'lucide-react';
+
+// Firebase конфигурациясы
+const firebaseConfig = JSON.parse(__firebase_config);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'incubator-app';
+
+const incubationData = [
+  { day: 1, temp: '37.8°C', hum: '55%', turn: true, title: 'Дамудың басталуы', desc: 'Жасушалар бөлініп, бластодерма түзіледі. Эмбрионның негізі қаланады.', ovoscopy: 'Жұмыртқа таза көрінеді, тек сарыуыздың үстінде кішкене дақ бар.', emoji: '🥚' },
+  { day: 2, temp: '37.8°C', hum: '55%', turn: true, title: 'Қан тамырлары', desc: 'Жүрек соға бастайды. Бірінші қан тамырлары сарыуыз бетінде пайда болады.', ovoscopy: 'Сарыуыздың айналасында нәзік қызғылт торлар байқала бастайды.', emoji: '🥚' },
+  { day: 3, temp: '37.8°C', hum: '55%', turn: true, title: 'Айналу басталды', desc: 'Эмбрион оң жағына бұрылады. Ми мен жұлынның нышандары қалыптасады.', ovoscopy: 'Ортада кішкентай "өрмекші" тәрізді қан тамырлары анық көрінеді.', emoji: '🥚' },
+  { day: 4, temp: '37.8°C', hum: '55%', turn: true, title: 'Ағзалардың бастауы', desc: 'Ми, көз және құлақ дамиды. Бүйрек пен бауырдың негізі қаланады.', ovoscopy: 'Эмбрион үлкейеді, қан тамырлары жұмыртқаның жартысын алады.', emoji: '🥚' },
+  { day: 5, temp: '37.8°C', hum: '55%', turn: true, title: 'Көздердің қарайуы', desc: 'Көздері пигментацияланып, қара нүкте ретінде көріне бастайды.', ovoscopy: 'Көз өте анық қара нүкте болып көрінеді. Бұл - тірі эмбрионның белгісі.', emoji: '🥚' },
+  { day: 6, temp: '37.8°C', hum: '55%', turn: true, title: 'Тұмсық пен қозғалыс', desc: 'Тұмсық пайда болады. Эмбрион өздігінен қозғала бастайды.', ovoscopy: 'Эмбрионның секіргені немесе тербелгені байқалуы мүмкін.', emoji: '🥚' },
+  { day: 7, temp: '37.8°C', hum: '55%', turn: true, title: 'Аяқ-қолдар', desc: 'Аяқтары мен қанаттары ұзарады. Денесі қарқынды өседі.', ovoscopy: 'Қан тамырлары бүкіл жұмыртқаны дерлік торлап тастаған.', emoji: '🥚' },
+  { day: 8, temp: '37.8°C', hum: '55%', turn: true, title: 'Қауырсын нышаны', desc: 'Қауырсын өсетін фолликулалар пайда болады. Жұмыртқа тісі түзіледі.', ovoscopy: 'Эмбрион ортада қараңғылау болып көрінеді, қозғалысы жиілейді.', emoji: '🥚' },
+  { day: 9, temp: '37.8°C', hum: '55%', turn: true, title: 'Құсқа ұқсау', desc: 'Эмбрион енді нағыз балапанға ұқсай бастайды. Саусақтары бөлінеді.', ovoscopy: 'Балапанның формасы айқындала түседі.', emoji: '🥚' },
+  { day: 10, temp: '37.8°C', hum: '55%', turn: true, title: 'Тырнақтар', desc: 'Тұмсығы қатая бастайды. Тырнақтары мен қабыршақтары пайда болады.', ovoscopy: 'Жұмыртқаның іші айтарлықтай қараңғыланады.', emoji: '🥚' },
+  { day: 11, temp: '37.8°C', hum: '55%', turn: true, title: 'Қауырсынның өсуі', desc: 'Денесінде алғашқы мамық қауырсындар көріне бастайды.', ovoscopy: 'Тек ауа камерасы мен жарық өткізетін кішкене жерлер қалады.', emoji: '🥚' },
+  { day: 12, temp: '37.8°C', hum: '55%', turn: true, title: 'Қозғалыстың артуы', desc: 'Балапан жұмыртқа ішінде өте белсенді. Ол ақуызды қарқынды жұтады.', ovoscopy: 'Балапан жұмыртқаның 2/3 бөлігін алып жатыр.', emoji: '🥚' },
+  { day: 13, temp: '37.8°C', hum: '55%', turn: true, title: 'Қаңқаның қатаюы', desc: 'Сүйектері кальций жинап, қатаяды. Қанаттары толық қалыптасқан.', ovoscopy: 'Жұмыртқаның іші толық қараңғы, тек ауа камерасы анық көрінеді.', emoji: '🥚' },
+  { day: 14, temp: '37.8°C', hum: '55%', turn: true, title: 'Басын бұру', desc: 'Балапан басын жұмыртқаның кең жағына (ауа камерасына) қарай бұрады.', ovoscopy: 'Эмбрион орналасуын өзгертті, бұл шығуға дайындықтың басы.', emoji: '🥚' },
+  { day: 15, temp: '37.8°C', hum: '55%', turn: true, title: 'Мамықтар', desc: 'Балапан толығымен мамықпен жабылады. Ішкі мүшелері дамыған.', ovoscopy: 'Ішінде бос орын қалмады десе де болады.', emoji: '🥚' },
+  { day: 16, temp: '37.8°C', hum: '55%', turn: true, title: 'Сарыуызды игеру', desc: 'Сарыуыз балапанның ішіне тартыла бастайды (қоректік қор).', ovoscopy: 'Жұмыртқа өте тығыз, қозғалыстар тек ауа камерасы маңында білінеді.', emoji: '🥚' },
+  { day: 17, temp: '37.8°C', hum: '55%', turn: true, title: 'Демалуға дайындық', desc: 'Балапан тұмсығын ауа камерасына жақындатады. Сұйықтық азаяды.', ovoscopy: 'Ауа камерасының шекарасы қисая бастайды.', emoji: '🥚' },
+  { day: 18, temp: '37.5°C', hum: '70%', turn: false, title: 'Лакдаун (Тоқтату)', desc: 'Бұруды тоқтатыңыз! Балапан шығуға ыңғайлы позиция алады.', ovoscopy: 'Балапан ауа камерасына тұмсығын сұғады. Шырыл естілуі мүмкін.', emoji: '🐣' },
+  { day: 19, temp: '37.5°C', hum: '70%', turn: false, title: 'Ауамен тыныстау', desc: 'Өкпесі жұмыс істей бастайды. Ол енді жұмыртқа ішіндегі ауамен дем алады.', ovoscopy: 'Ауа камерасының ішінде тұмсықтың қозғалысын көруге болады.', emoji: '🐣' },
+  { day: 20, temp: '37.5°C', hum: '70%', turn: false, title: 'Тесу (Нақлу)', desc: 'Балапан қабықты тесе бастайды. Бұл процесс 12-24 сағатқа созылуы мүмкін.', ovoscopy: 'Қабықтағы алғашқы сызаттар мен тесіктер көрінеді.', emoji: '🐣' },
+  { day: 21, temp: '37.2°C', hum: '75%', turn: false, title: 'Туылу!', desc: 'Балапан айнала шоқып, қабықты жарып шығады. Құттықтаймыз!', ovoscopy: 'Бос қабық және жаңа туған балапан!', emoji: '🐥' }
+];
+
+const EmbryoGraphic = ({ day }) => {
+  const getStageStyles = () => {
+    if (day <= 3) return { color: '#fee2e2', opacity: 0.3, size: 'scale-50', showVeins: day > 1 };
+    if (day <= 7) return { color: '#fecaca', opacity: 0.6, size: 'scale-75', showVeins: true, showEye: day > 4 };
+    if (day <= 13) return { color: '#f87171', opacity: 0.9, size: 'scale-90', showVeins: true, showEye: true, showBeak: day > 10 };
+    if (day <= 17) return { color: '#ef4444', opacity: 1, size: 'scale-100', showVeins: true, showEye: true, showBeak: true, showFeathers: true };
+    return { color: '#dc2626', opacity: 1, size: 'scale-110', showVeins: false, showEye: true, showBeak: true, showFeathers: true, isFull: true };
+  };
+  const stage = getStageStyles();
+  return (
+    <div className="relative w-48 h-64 flex items-center justify-center">
+      <div className="absolute inset-0 bg-slate-100 rounded-[50%_50%_50%_50%/60%_60%_40%_40%] border-4 border-slate-300 shadow-inner overflow-hidden">
+        {stage.showVeins && (
+          <svg className="absolute inset-0 w-full h-full opacity-40" viewBox="0 0 100 100">
+            <path d="M50 50 Q70 20 90 40 M50 50 Q30 10 10 30 M50 50 Q80 80 60 95 M50 50 Q20 80 5 60" stroke="red" strokeWidth="0.5" fill="none" className="animate-pulse" />
+          </svg>
+        )}
+        <div className={`absolute transition-all duration-700 ease-in-out ${stage.size} transform translate-y-2`}>
+          <div className="w-16 h-20 rounded-full relative" style={{ backgroundColor: stage.color, opacity: stage.opacity }}>
+            {stage.showEye && <div className="absolute top-4 right-4 w-3 h-3 bg-black rounded-full border border-white"></div>}
+            {stage.showBeak && <div className="absolute top-6 -right-2 w-4 h-2 bg-yellow-400 rounded-full transform rotate-12"></div>}
+          </div>
+        </div>
+        <div className={`absolute top-0 w-full bg-blue-100/40 border-b border-blue-200 transition-all duration-500`} style={{ height: `${10 + (day * 0.8)}%` }}></div>
+      </div>
+    </div>
+  );
+};
+
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(false);
+  
+  const [startDate, setStartDate] = useState(null);
+  const [currentDay, setCurrentDay] = useState(0);
+  const [selectedDay, setSelectedDay] = useState(1);
+
+  // 1. Auth Initialization
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // 2. Data Synchronization with Firestore
+  useEffect(() => {
+    if (!user) return;
+
+    // Әр қолданушының (тіпті анонимді болса да) өз деректері болады
+    const userDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'incubation');
+    
+    const unsubscribe = onSnapshot(userDocRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        setStartDate(data.startDate);
+        if (data.startDate) calculateCurrentDay(data.startDate);
+      } else {
+        setStartDate(null);
+        setCurrentDay(0);
+      }
+    }, (error) => {
+      console.error("Firestore error:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const calculateCurrentDay = (start) => {
+    const startObj = new Date(start);
+    startObj.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffTime = today - startObj;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    setCurrentDay(diffDays);
+    setSelectedDay(diffDays > 0 && diffDays <= 21 ? diffDays : (diffDays > 21 ? 21 : 1));
+  };
+
+  const handleQuickEnter = async () => {
+    setAuthLoading(true);
+    try {
+      await signInAnonymously(auth);
+    } catch (error) {
+      console.error("Кіру қатесі:", error);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    await signOut(auth);
+    setUser(null);
+  };
+
+  const saveStartDate = async (date) => {
+    if (!user) return;
+    try {
+      const userDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'incubation');
+      await setDoc(userDocRef, { startDate: date });
+    } catch (e) {
+      console.error("Сақтау қатесі:", e);
+    }
+  };
+
+  const handleReset = async () => {
+    if (window.confirm('Жаңа цикл бастағыңыз келе ме? Барлық деректер нөлден басталады.')) {
+      const userDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'incubation');
+      await setDoc(userDocRef, { startDate: null });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center space-y-4">
+        <RefreshCw className="animate-spin text-orange-500" size={48} />
+        <p className="text-slate-400 animate-pulse uppercase tracking-widest text-xs">Жүктелуде...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-[#1e293b] rounded-[2.5rem] shadow-2xl border border-slate-700 p-10 text-center animate-in fade-in zoom-in duration-500">
+           <div className="w-24 h-24 bg-orange-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+              <span className="text-5xl animate-bounce">🐣</span>
+           </div>
+           <h2 className="text-3xl font-bold text-white mb-4">Дайынсыз ба?</h2>
+           <p className="text-slate-400 text-sm mb-10 leading-relaxed">
+             Инкубация процесін бақылау үшін "Кіру" түймесін басыңыз. Логин мен құпия сөз қажет емес.
+           </p>
+
+           <button 
+             onClick={handleQuickEnter}
+             disabled={authLoading}
+             className={`w-full ${authLoading ? 'bg-orange-800' : 'bg-orange-600 hover:bg-orange-700 active:scale-[0.98]'} text-white font-bold py-5 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 text-lg`}
+           >
+             {authLoading ? <Loader2 className="animate-spin" size={24} /> : <LogIn size={24}/>}
+             {authLoading ? 'Кіруде...' : 'Жүйеге кіру'}
+           </button>
+           
+           <p className="mt-6 text-[10px] text-slate-500 uppercase tracking-widest font-medium">
+             Тіркелусіз тез қол жеткізу
+           </p>
+        </div>
+      </div>
+    );
+  }
+
+  const currentDayData = incubationData.find(d => d.day === selectedDay) || incubationData[0];
+  const progressPercent = Math.min(100, Math.max(0, ((currentDay > 21 ? 21 : currentDay) / 21) * 100));
+
+  return (
+    <div className="min-h-screen bg-[#0f172a] text-slate-100 flex flex-col">
+      <header className="bg-[#1e293b] border-b border-slate-700 px-6 py-4 sticky top-0 z-50 shadow-lg">
+        <div className="max-w-5xl mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🐤</span>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 to-amber-300 bg-clip-text text-transparent">
+              Инкубатор
+            </h1>
+          </div>
+          <div className="flex items-center gap-4">
+             <div className="hidden sm:flex flex-col items-end">
+               <span className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter flex items-center gap-1">
+                 <ShieldCheck size={10} className="text-emerald-400" /> Белсенді сессия
+               </span>
+               <span className="text-xs text-slate-300">Пайдаланушы: {user.uid.substring(0, 8)}...</span>
+             </div>
+             <button onClick={handleSignOut} className="p-2 text-slate-400 hover:text-red-400 transition-colors" title="Шығу">
+               <LogOut size={20} />
+             </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-5xl mx-auto px-4 py-8 flex-grow w-full">
+        {!startDate ? (
+          <div className="bg-[#1e293b] rounded-[2.5rem] p-10 max-w-lg mx-auto border border-slate-700 text-center shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <h2 className="text-2xl font-bold mb-6 text-white">Жаңа инкубацияны бастау</h2>
+            <p className="text-slate-400 mb-8">Жұмыртқаларды инкубаторға салған күнді таңдаңыз.</p>
+            <input 
+              type="date" 
+              className="w-full p-4 rounded-2xl bg-slate-900 border-2 border-slate-700 text-white mb-6 outline-none focus:border-orange-500"
+              defaultValue={new Date().toISOString().split('T')[0]}
+              id="date-input"
+            />
+            <button 
+              onClick={() => saveStartDate(document.getElementById('date-input').value)}
+              className="w-full bg-orange-600 hover:bg-orange-700 py-4 rounded-2xl font-bold transition-all shadow-lg"
+            >
+              Инкубацияны бастау
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in duration-700">
+            <div className="lg:col-span-4 space-y-6">
+              <div className="bg-[#1e293b] rounded-[2.5rem] p-8 border border-slate-700 flex flex-col items-center shadow-xl">
+                <EmbryoGraphic day={selectedDay} />
+                <div className="mt-6 text-center">
+                  <div className="text-6xl font-black text-orange-400">{selectedDay}</div>
+                  <div className="text-slate-500 uppercase text-[10px] tracking-widest font-bold">Күндік даму</div>
+                </div>
+              </div>
+
+              <div className="bg-indigo-900/40 rounded-3xl p-6 border border-indigo-500/20">
+                <div className="flex justify-between mb-2 text-sm font-bold">
+                  <span>Прогресс</span>
+                  <span>{Math.round(progressPercent)}%</span>
+                </div>
+                <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                  <div style={{width: `${progressPercent}%`}} className="h-full bg-orange-500 transition-all duration-1000"></div>
+                </div>
+                <div className="mt-4 flex items-center justify-between">
+                  <button onClick={handleReset} className="text-xs text-slate-500 hover:text-red-400 flex items-center gap-1 transition-colors">
+                    <RefreshCw size={12} /> Циклды жаңарту
+                  </button>
+                  <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                    <Calendar size={10} /> {new Date(startDate).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="lg:col-span-8 space-y-6">
+              <div className="bg-[#1e293b] rounded-[2.5rem] p-8 border border-slate-700 shadow-xl">
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="bg-orange-500/10 text-orange-400 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-orange-500/20">
+                    {selectedDay === currentDay ? 'Бүгін' : `Күн ${selectedDay}`}
+                  </span>
+                </div>
+                <h2 className="text-3xl font-bold mb-4 text-white">{currentDayData.title}</h2>
+                <p className="text-slate-400 mb-8 leading-relaxed text-sm sm:text-base">{currentDayData.desc}</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                  <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-700">
+                    <Thermometer className="text-orange-400 mb-2" size={20} />
+                    <div className="text-[10px] text-slate-500 font-bold uppercase mb-1 tracking-tighter">Температура</div>
+                    <div className="text-xl font-bold text-white">{currentDayData.temp}</div>
+                  </div>
+                  <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-700">
+                    <Droplets className="text-blue-400 mb-2" size={20} />
+                    <div className="text-[10px] text-slate-500 font-bold uppercase mb-1 tracking-tighter">Ылғалдылық</div>
+                    <div className="text-xl font-bold text-white">{currentDayData.hum}</div>
+                  </div>
+                  <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-700">
+                    {currentDayData.turn ? <RotateCw className="text-emerald-400 mb-2" size={20} /> : <Ban className="text-red-400 mb-2" size={20} />}
+                    <div className="text-[10px] text-slate-500 font-bold uppercase mb-1 tracking-tighter">Айналдыру</div>
+                    <div className={`text-xl font-bold ${currentDayData.turn ? 'text-white' : 'text-red-400'}`}>{currentDayData.turn ? 'Қажет' : 'Тоқтату'}</div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-900/80 p-5 rounded-2xl border border-slate-700">
+                  <div className="flex items-center gap-2 mb-2 text-orange-400 font-bold text-xs uppercase tracking-widest">
+                    <Eye size={16} /> Овоскопия
+                  </div>
+                  <p className="text-slate-300 text-sm italic leading-relaxed">{currentDayData.ovoscopy}</p>
+                </div>
+              </div>
+
+              <div className="bg-[#1e293b] rounded-[2rem] p-6 border border-slate-700">
+                <div className="grid grid-cols-7 gap-2">
+                  {incubationData.map((d) => (
+                    <button
+                      key={d.day}
+                      onClick={() => setSelectedDay(d.day)}
+                      className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all border-2 
+                        ${selectedDay === d.day ? 'border-orange-500 bg-orange-500/10 scale-105 shadow-md' : 'border-slate-800 hover:border-slate-600'}
+                        ${d.day < currentDay ? 'opacity-30' : ''}`}
+                    >
+                      <span className={`text-[9px] font-bold ${selectedDay === d.day ? 'text-orange-400' : 'text-slate-500'}`}>{d.day}</span>
+                      <span className="text-base sm:text-xl">{d.emoji}</span>
+                      {d.day === currentDay && <div className="w-1 h-1 bg-blue-500 rounded-full mt-1 animate-pulse"></div>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+
+      <footer className="py-8 border-t border-slate-800/50 mt-auto">
+        <div className="max-w-5xl mx-auto px-6 text-center">
+          <div className="flex items-center justify-center gap-2 text-slate-500 mb-1">
+            <User size={14} />
+            <span className="text-[10px] uppercase tracking-widest font-bold">Жоба авторы</span>
+          </div>
+          <div className="text-slate-300 font-medium tracking-wide">Исаханова Еркинай Кайыпрахмановна</div>
+          <div className="mt-4 text-[10px] text-slate-600 uppercase tracking-widest italic">
+            Инкубациялық циклды басқару жүйесі v2.4
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
