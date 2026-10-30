@@ -156,7 +156,7 @@ DOCTYPE html>
             </div>
             <div class="mt-6 md:mt-0 text-right">
                 <div class="text-xs text-gray-400 italic">Жоба авторы:</div>
-                <div class="text-xl font-bold text-blue-100 uppercase">Исаханова Еркинай</div>
+                <div class="text-xl font-bold text-blue-100 uppercase">Қуатбайұлы Сұлтан; Жетекшісі: Исаханова Еркинай</div>
                 <button onclick="logout()" class="text-xs text-red-400 font-bold mt-2 hover:text-red-300">Шығу <i class="fas fa-power-off ml-1"></i></button>
             </div>
         </div>
